@@ -1,0 +1,390 @@
+/* style.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background: #efefef;
+  color: #333;
+  min-height: 100vh;
+  padding: 12px;
+  padding-top: 4rem; /* 增加顶部内边距以防止导航栏遮挡 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+}
+
+/* style.css */
+.container {
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
+  margin-top: 0; /* 保持不变 */
+  
+  /* --- 增量更新：让容器在flex布局中生长以填充可用空间 --- */
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 导航栏样式保持不变 */
+.nav-container {
+  /* 原有样式保持不变 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 3.5rem;
+}
+
+#status-message {
+  position: fixed;
+  top: 60px; /* 调整位置，避免与导航栏重叠 */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  padding: 10px 16px;
+  z-index: 1000;
+  color: #fff;
+  font-weight: bold;
+  display: none;
+  border-radius: 6px;
+}
+
+#turn-counter {
+  position: fixed;
+  top: 3.5rem; /* 在导航栏下方 */
+  left: 4rem;
+  padding: 8px 12px;
+  font-size: 15px;
+  background: #ffffff;
+  color: #000;
+  text-align: center;
+  min-width: 50px;
+  z-index: 99;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.turn-label { font-weight: bold; }
+#turn-number { font-weight: bold; color: teal; }
+
+/* style.css */
+.game-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 12px;
+  width: 100%;
+
+  /* --- 增量更新：让游戏区域填充其父容器的剩余空间 --- */
+  flex-grow: 1;
+  align-items: center; /* 垂直居中棋盘 */
+}
+
+/* 添加调试样式 */
+.grid-container.debug {
+  border: 2px solid red !important;
+  background: rgba(255, 0, 0, 0.1) !important;
+}
+
+/* style.css */
+/* 修复棋盘显示的关键CSS */
+.grid-container {
+  display: none; /* 默认隐藏 */
+  visibility: hidden;
+  opacity: 0;
+  border: 2px solid #444;
+  margin: 0 auto;
+  overflow: hidden;
+  /* 添加一个最小尺寸，作为渲染失败时的最后防线 */
+  min-width: 200px;
+  min-height: 200px;
+  background-color: #333; /* 添加背景色以调试 */
+}
+
+.tile * {
+  pointer-events: none;
+}
+
+.tile {
+  pointer-events: auto;
+  background: #dcdcdc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  color: #fff;
+
+  /* 强制开启硬件加速 */
+  will-change: background-color, transform;
+  transform: translateZ(0);
+  
+  /* 防止内容溢出重排 */
+  contain: content; 
+  
+  /* 移除不必要的过渡，过渡会造成连按时的视觉延迟 */
+  transition: none !important; 
+}
+
+/* 修复视野内格子间距 */
+.tile.in-sight {
+  border: 1px solid #000 !important;  /* 改为1px边框 */
+  box-sizing: border-box;
+}
+
+.tile .owner-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 1;
+}
+
+/* 确保所有者覆盖层不拦截点击 */
+.owner-overlay {
+  pointer-events: none;
+}
+
+/* 确保内容区域不拦截点击 */
+.tile-content {
+  pointer-events: none;
+}
+
+.tile.capital .owner-overlay { opacity: 1; }
+
+.tile .tile-content {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  font-weight: bold;
+  color: #fff;
+}
+
+.tile.selected {
+  z-index: 1000;
+  /* 使用 outline 代替 border，不占用空间，不会导致重排 */
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 2px #fff, 0 0 3px 1px #00b4d8;
+}
+
+.move-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  color: #fff;
+  z-index: 5;
+  font-weight: bold;
+}
+
+#game-leaderboard {
+  position: fixed;
+  top: 3.5rem; /* 在导航栏下方 */
+  right: 0;
+  z-index: 25;
+  min-width: 200px;
+  background: #ffffff;
+  padding: 5px;
+  display: none;
+}
+
+#game-leaderboard table { border-collapse: collapse; width: 100%; }
+#game-leaderboard td {
+  padding: 6px;
+  color: #000;
+  text-align: center;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#game-leaderboard td.leaderboard-name {
+  color: #fff;
+  max-width: 250px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* 添加排行榜动态行样式 */
+#leaderboard-body tr {
+  transition: all 0.3s ease;
+}
+
+#leaderboard-body td {
+  padding: 6px;
+  color: #000;
+  text-align: center;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#leaderboard-body td.leaderboard-name {
+  color: #fff;
+  max-width: 250px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.in-game-col {
+  display: none;
+}
+.pre-game-col {
+  display: table-cell;
+}
+
+/* 当游戏开始时，将为 body 添加 "game-started" 类 */
+body.game-started .in-game-col {
+  display: table-cell; /* 显示游戏内数据列 */
+}
+body.game-started .pre-game-col {
+  display: none; /* 隐藏状态列 */
+}
+
+/* 玩家状态文本样式 */
+.player-status-ready {
+  color: #52c41a; /* 绿色 */
+  font-weight: bold;
+}
+
+.player-status-waiting {
+  color: #f39c11; /* 橙色 */
+}
+
+#room-ui {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  margin-bottom: 12px;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 10px;
+}
+.room-section {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 16px;
+  min-width: 300px;
+  text-align: center;
+  border-radius: 10px;
+}
+
+#username-display {
+  padding: 10px; margin-bottom: 10px; font-size: 16px; color: #fff;
+  background: rgba(0,0,0,0.3); border-radius: 5px;
+}
+
+.room-section input {
+  padding: 10px; border: none; margin-bottom: 10px; width: 100%; font-size: 16px;
+}
+.room-section button {
+  padding: 10px 20px; background: #4CAF50; color: #fff; border: none; cursor: pointer; font-size: 16px; transition: background 0.3s; width: 100%;
+}
+.room-section button:hover { background: #45a049; }
+#room-status { width: 100%; text-align: center; padding: 8px; font-weight: bold; }
+#ready-btn {
+  margin: 0 auto; padding: 12px 30px; background: #2196F3; color: #fff; border: none; cursor: pointer; font-size: 18px; transition: background 0.3s; display: block;
+}
+#ready-btn:hover { background: #0b7dda; }
+
+#settings-btn:hover { opacity: 0.9; }
+
+#settings-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center; z-index: 2000;
+  background: rgba(0,0,0,0.7);
+}
+#settings-modal > div {
+  background: #333; padding: 30px; text-align: center; max-width: 400px; width: 80%; border-radius: 10px;
+}
+
+/* 新增样式 - 修复皇城和城市显示 */
+.city-icon {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0%;
+  left: 0%;
+  z-index: 2;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.city-icon.capital {
+  background-image: url("/img/crown.png");
+  background-size: cover;
+  pointer-events: none;
+}
+
+.city-icon.city {
+  background-image: url("/img/city.png");
+  background-size: cover;
+}
+
+.arrow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.arrow {
+  font-weight: bold;
+  text-shadow: 0 0 2px #000;
+}
+
+/* 在style.css末尾添加以下代码 */
+.tile.attackable::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  pointer-events: none;
+}
+
+/* 视野变换调试信息 */
+.vision-debug {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  z-index: 1000;
+}

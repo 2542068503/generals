@@ -1,0 +1,20 @@
+{
+  "name": "generals",
+  "version": "2.3.0",
+  "description": "Generals",
+  "main": "game.js",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^2.3.0"
+  },
+  "devDependencies": {
+    "pkg": "^4.4.9"
+  },
+  "scripts": {
+    "build": "pkg server.js --targets node13-win-x86 --output generals.exe",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

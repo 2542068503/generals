@@ -1,0 +1,687 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>D1004 [NOIP 2000 提高组] 方格取数 - 洛谷</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="icon" href="/img/favicon.ico" type="image/png" />
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="nav-container">
+            <!-- 导航栏主体（原top-bar） -->
+            <div class="nav-main">
+                <!-- 左侧区域（原left） -->
+                <div class="nav-left">
+                    <!-- 洛谷Logo链接 -->
+                    <a class="logo-link" style="color: inherit;">
+                        <img class="logo-image mini"
+                            src="https://fecdn.luogu.com.cn/columba/static.325908fec383795b.logo-single-color.svg"
+                            alt="洛谷Logo">
+                    </a>
+                    <!-- 面包屑导航（原breadcrumb） -->
+                    <div class="nav-breadcrumb">
+                        <a class="breadcrumb-item" disabled="false" style="color: inherit;">题目列表</a>
+                        <span class="breadcrumb-separator">/</span>
+                        <a class="breadcrumb-item current-page" aria-current="page" disabled="false"
+                            style="color: inherit;">D1004</a>
+                    </div>
+                </div>
+                <!-- 右侧区域（原right） -->
+                <div class="nav-right">
+                    <!-- 用户导航区（原user-nav） -->
+                    <div class="user-nav">
+                        <!-- 消息图标链接 -->
+                        <a class="nav-link" disabled="false">
+                            <svg class="icon envelope" aria-hidden="true" focusable="false" data-prefix="far"
+                                data-icon="envelope" role="img" xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 512 512">
+                                <path fill="currentColor"
+                                    d="M64 112c-8.8 0-16 7.2-16 16l0 22.1L220.5 291.7c20.7 17 50.4 17 71.1 0L464 150.1l0-22.1c0-8.8-7.2-16-16-16L64 112zM48 212.2L48 384c0 8.8 7.2 16 16 16l384 0c8.8 0 16-7.2 16-16l0-171.8L322 328.8c-38.4 31.5-93.7 31.5-132 0L48 212.2zM0 128C0 92.7 28.7 64 64 64l384 0c35.3 0 64 28.7 64 64l0 256c0 35.3-28.7 64-64 64L64 448c-35.3 0-64-28.7-64-64L0 128z">
+                                </path>
+                            </svg>
+                        </a>
+                        <!-- 通知图标链接 -->
+                        <a class="nav-link" disabled="false">
+                            <svg class="icon bell" aria-hidden="true" focusable="false" data-prefix="far"
+                                data-icon="bell" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                                <path fill="currentColor"
+                                    d="M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 25.4c0 45.4-15.5 89.5-43.8 124.9L5.3 377c-5.8 7.2-6.9 17.1-2.9 25.4S14.8 416 24 416l400 0c9.2 0 17.6-5.3 21.6-13.6s2.9-18.2-2.9-25.4l-14.9-18.6C399.5 322.9 384 278.8 384 233.4l0-25.4c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm0 96c61.9 0 112 50.1 112 112l0 25.4c0 47.9 13.9 94.6 39.7 134.6L72.3 368C98.1 328 112 281.3 112 233.4l0-25.4c0-61.9 50.1-112 112-112zm64 352l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7s18.7-28.3 18.7-45.3z">
+                                </path>
+                            </svg>
+                        </a>
+                        <!-- 编辑按钮容器 -->
+                        <span class="editor-container">
+                            <span class="editor-wrapper">
+                                <a class="nav-link" disabled="false">
+                                    <svg class="icon pen-swirl icon-button" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="pen-swirl" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                                        <path fill="currentColor"
+                                            d="M441.2 59.1L453.1 71c9.4 9.4 9.4 24.6 0 33.9L432 126.1 386.3 80.4l20.8-21.1c9.4-9.5 24.6-9.5 34.1-.1zM231.9 236.8L352.6 114.5 398.1 160 276.6 281.6c-3.3 3.3-7.5 5.6-12 6.5L215 298.5l10.4-49.7c.9-4.5 3.2-8.7 6.4-11.9zM373 25.5L197.7 203.1c-9.7 9.8-16.4 22.3-19.2 35.8l-18 85.7c-1.7 7.9 .8 16.2 6.5 21.9s14 8.2 21.9 6.5l85.5-17.9c13.7-2.9 26.3-9.7 36.1-19.6L487.1 138.9c28.1-28.1 28.1-73.7 0-101.8L475.1 25.2C446.9-3.1 401-2.9 373 25.5zm-48.3-7.9C302.9 11.4 279.8 8 256 8C119 8 8 119 8 256S119 504 256 504c13.3 0 24-10.7 24-24s-10.7-24-24-24C145.5 456 56 366.5 56 256S145.5 56 256 56c9.7 0 19.3 .7 28.7 2l40-40.4zM454.1 228.4c1.2 9 1.9 18.2 1.9 27.6c0 57.4-46.6 104-104 104c-13.3 0-24 10.7-24 24s10.7 24 24 24c83.9 0 152-68.1 152-152c0-23.6-3.3-46.4-9.4-68l-40.4 40.5z">
+                                        </path>
+                                    </svg>
+                                </a>
+                            </span>
+                        </span>
+                        <!-- 用户头像 -->
+                        <span class="user-avatar">
+                            <a class="avatar-link" disabled="false">
+                                <img class="avatar-image" src="https://cdn.luogu.com.cn/upload/usericon/1.png"
+                                    alt="User Avatar">
+                            </a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                /* 完全保留原始CSS变量，未做任何修改 */
+                .nav-container {
+                    -webkit-text-size-adjust: 100%;
+                    --fa-font-solid: normal 900 1em/1 "Font Awesome 6 Free";
+                    --fa-font-regular: normal 400 1em/1 "Font Awesome 6 Free";
+                    --fa-font-light: normal 300 1em/1 "Font Awesome 6 Pro";
+                    --fa-font-thin: normal 100 1em/1 "Font Awesome 6 Pro";
+                    --fa-font-duotone: normal 900 1em/1 "Font Awesome 6 Duotone";
+                    --fa-font-duotone-regular: normal 400 1em/1 "Font Awesome 6 Duotone";
+                    --fa-font-duotone-light: normal 300 1em/1 "Font Awesome 6 Duotone";
+                    --fa-font-duotone-thin: normal 100 1em/1 "Font Awesome 6 Duotone";
+                    --fa-font-brands: normal 400 1em/1 "Font Awesome 6 Brands";
+                    --fa-font-sharp-solid: normal 900 1em/1 "Font Awesome 6 Sharp";
+                    --fa-font-sharp-regular: normal 400 1em/1 "Font Awesome 6 Sharp";
+                    --fa-font-sharp-light: normal 300 1em/1 "Font Awesome 6 Sharp";
+                    --fa-font-sharp-thin: normal 100 1em/1 "Font Awesome 6 Sharp";
+                    --fa-font-sharp-duotone-solid: normal 900 1em/1 "Font Awesome 6 Sharp Duotone";
+                    --fa-font-sharp-duotone-regular: normal 400 1em/1 "Font Awesome 6 Sharp Duotone";
+                    --fa-font-sharp-duotone-light: normal 300 1em/1 "Font Awesome 6 Sharp Duotone";
+                    --fa-font-sharp-duotone-thin: normal 100 1em/1 "Font Awesome 6 Sharp Duotone";
+                    --usable-height: 100vh;
+                    --usable-width: 100vw;
+                    --lcolor--lapis-1: 202, 213, 232;
+                    --lfe-color--lapis-1: #cad5e8;
+                    --lcolor--lapis-2: 114, 141, 207;
+                    --lfe-color--lapis-2: #728dcf;
+                    --lcolor--lapis-3: 41, 73, 180;
+                    --lfe-color--lapis-3: #2949b4;
+                    --lcolor--lapis-4: 14, 29, 105;
+                    --lfe-color--lapis-4: #0e1d69;
+                    --lcolor--lapis-5: 2, 5, 28;
+                    --lfe-color--lapis-5: #02051c;
+                    --lcolor--blue-1: 224, 247, 255;
+                    --lfe-color--blue-1: #e0f7ff;
+                    --lcolor--blue-2: 137, 209, 245;
+                    --lfe-color--blue-2: #89d1f5;
+                    --lcolor--blue-3: 52, 152, 219;
+                    --lfe-color--blue-3: #3498db;
+                    --lcolor--blue-4: 20, 85, 143;
+                    --lfe-color--blue-4: #14558f;
+                    --lcolor--blue-5: 5, 34, 66;
+                    --lfe-color--blue-5: #052242;
+                    --lcolor--cyan-1: 181, 245, 236;
+                    --lfe-color--cyan-1: #b5f5ec;
+                    --lcolor--cyan-2: 92, 219, 211;
+                    --lfe-color--cyan-2: #5cdbd3;
+                    --lcolor--cyan-3: 19, 194, 194;
+                    --lfe-color--cyan-3: #13c2c2;
+                    --lcolor--cyan-4: 0, 109, 117;
+                    --lfe-color--cyan-4: #006d75;
+                    --lcolor--cyan-5: 0, 35, 41;
+                    --lfe-color--cyan-5: #002329;
+                    --lcolor--green-1: 217, 240, 199;
+                    --lfe-color--green-1: #d9f0c7;
+                    --lcolor--green-2: 148, 214, 109;
+                    --lfe-color--green-2: #94d66d;
+                    --lcolor--green-3: 82, 196, 26;
+                    --lfe-color--green-3: #52c41a;
+                    --lcolor--green-4: 34, 112, 10;
+                    --lfe-color--green-4: #22700a;
+                    --lcolor--green-5: 7, 36, 1;
+                    --lfe-color--green-5: #072401;
+                    --lcolor--lgreen-1: 218, 224, 211;
+                    --lfe-color--lgreen-1: #dae0d3;
+                    --lcolor--lgreen-2: 170, 199, 145;
+                    --lfe-color--lgreen-2: #aac791;
+                    --lcolor--lgreen-3: 112, 173, 71;
+                    --lfe-color--lgreen-3: #70ad47;
+                    --lcolor--lgreen-4: 52, 97, 30;
+                    --lfe-color--lgreen-4: #34611e;
+                    --lcolor--lgreen-5: 9, 20, 5;
+                    --lfe-color--lgreen-5: #091405;
+                    --lcolor--yellow-1: 255, 255, 184;
+                    --lfe-color--yellow-1: #ffffb8;
+                    --lcolor--yellow-2: 255, 251, 143;
+                    --lfe-color--yellow-2: 'fffb8f';
+                    --lcolor--yellow-3: 250, 219, 20;
+                    --lfe-color--yellow-3: #fadb14;
+                    --lcolor--yellow-4: 173, 139, 0;
+                    --lfe-color--yellow-4: #ad8b00;
+                    --lcolor--yellow-5: 97, 71, 0;
+                    --lfe-color--yellow-5: #614700;
+                    --lcolor--orange-1: 255, 237, 181;
+                    --lfe-color--orange-1: #ffedb5;
+                    --lcolor--orange-2: 255, 206, 99;
+                    --lfe-color--orange-2: #ffce63;
+                    --lcolor--orange-3: 243, 156, 17;
+                    --lfe-color--orange-3: #f39c11;
+                    --lcolor--orange-4: 166, 91, 0;
+                    --lfe-color--orange-4: #a65b00;
+                    --lcolor--orange-5: 89, 43, 0;
+                    --lfe-color--orange-5: #592b00;
+                    --lcolor--gold-1: 255, 246, 186;
+                    --lfe-color--gold-1: #fff6ba;
+                    --lcolor--gold-2: 255, 225, 105;
+                    --lfe-color--gold-2: #ffe169;
+                    --lcolor--gold-3: 255, 193, 22;
+                    --lfe-color--gold-3: #ffc116;
+                    --lcolor--gold-4: 179, 119, 0;
+                    --lfe-color--gold-4: #b37700;
+                    --lcolor--gold-5: 102, 61, 0;
+                    --lfe-color--gold-5: #663d00;
+                    --lcolor--purple-1: 251, 237, 255;
+                    --lfe-color--purple-1: #fbedff;
+                    --lcolor--purple-2: 206, 142, 232;
+                    --lfe-color--purple-2: #ce8ee8;
+                    --lcolor--purple-3: 157, 61, 207;
+                    --lfe-color--purple-3: #9d3dcf;
+                    --lcolor--purple-4: 86, 25, 130;
+                    --lfe-color--purple-4: #561982;
+                    --lcolor--purple-5: 31, 7, 54;
+                    --lfe-color--purple-5: #1f0736;
+                    --lcolor--pink-1: 255, 240, 240;
+                    --lfe-color--pink-1: #fff0f0;
+                    --lcolor--pink-2: 255, 158, 163;
+                    --lfe-color--pink-2: #ff9ea3;
+                    --lcolor--pink-3: 254, 76, 97;
+                    --lfe-color--pink-3: #fe4c61;
+                    --lcolor--pink-4: 179, 36, 62;
+                    --lfe-color--pink-4: #b3243e;
+                    --lcolor--pink-5: 102, 14, 36;
+                    --lfe-color--pink-5: #660e24;
+                    --lcolor--red-1: 255, 235, 230;
+                    --lfe-color--red-1: #ffebe6;
+                    --lcolor--red-2: 255, 166, 148;
+                    --lfe-color--red-2: #ffa694;
+                    --lcolor--red-3: 231, 76, 60;
+                    --lfe-color--red-3: #e74c3c;
+                    --lcolor--red-4: 156, 29, 25;
+                    --lfe-color--red-4: '9c1d19';
+                    --lcolor--red-5: 79, 8, 10;
+                    --lfe-color--red-5: #4f080a;
+                    --lcolor--grey-1: 250, 250, 250;
+                    --lfe-color--grey-1: #fafafa;
+                    --lcolor--grey-2: 232, 232, 232;
+                    --lfe-color--grey-2: #e8e8e8;
+                    --lcolor--grey-3: 191, 191, 191;
+                    --lfe-color--grey-3: #bfbfbf;
+                    --lcolor--grey-4: 89, 89, 89;
+                    --lfe-color--grey-4: #595959;
+                    --lcolor--grey-5: 38, 38, 38;
+                    --lfe-color--grey-5: #262626;
+                    --lcolor--primary: 52, 152, 219;
+                    --lfe-color--primary: #3498db;
+                    --lcolor--primary-bg: 224, 247, 255;
+                    --lfe-color--primary-bg: #e0f7ff;
+                    --lcolor--success: 82, 196, 26;
+                    --lfe-color--success: #52c41a;
+                    --lcolor--warning: 255, 193, 22;
+                    --lfe-color--warning: #ffc116;
+                    --lcolor--error: 231, 76, 60;
+                    --lfe-color--error: #e74c3c;
+                    --lcolor--link: 52, 152, 219;
+                    --lfe-color--link: #3498db;
+                    --lcolor--disabled: 191, 191, 191;
+                    --lfe-color--disabled: #bfbfbf;
+                    --lcolor--clicked: 41, 73, 180;
+                    --lfe-color--clicked: #2949b4;
+                    --lcolor--background: 232, 232, 232;
+                    --lfe-color--background: #e8e8e8;
+                    --lfe-code-font: "Consolas";
+                    font-size: 16px;
+                    font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, PingFang SC, Noto Sans, Noto Sans SC, Source Sans Pro, Source Han Sans, Segoe UI, Arial, Microsoft YaHei, WenQuanYi Micro Hei, sans-serif;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    box-sizing: border-box;
+                    max-height: 3.5rem;
+                    height: 3.5rem;
+                    z-index: 100;
+                    display: flex;
+                    flex-flow: row nowrap;
+                    align-items: center;
+                    padding: .75rem;
+                    line-height: 1;
+                    color: #333;
+                    background: #fff;
+                    box-shadow: 0 1px 3px rgba(26, 26, 26, .1);
+                }
+
+                /* 导航栏主体（复刻原.top-bar样式） */
+                .nav-main {
+                    display: flex;
+                    flex-flow: row nowrap;
+                    align-items: center;
+                    width: 100%;
+                }
+
+                /* 左侧区域（复刻原.left样式） */
+                .nav-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                }
+
+                /* Logo图片（复刻原.header-logo.mini样式） */
+                .logo-image {
+                    height: 2rem;
+                    width: calc(64px - 1.5rem);
+                }
+
+                .logo-image.mini {
+                    height: 1.75rem;
+                    /* 原mini类默认尺寸，与洛谷原Logo大小一致 */
+                }
+
+                /* Logo链接（无额外样式，仅继承） */
+                .logo-link {
+                    text-decoration: none;
+                }
+
+                /* 面包屑导航（复刻原.breadcrumb样式） */
+                .nav-breadcrumb {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                /* 面包屑项（复刻原.breadcrumb a样式） */
+                .breadcrumb-item {
+                    text-decoration: none;
+                    color: inherit;
+                    transition: color 0.2s;
+                }
+
+                .breadcrumb-item.current-page {
+                    color: var(--lfe-color--primary);
+                    /* 原router-link-active颜色 */
+                }
+
+                /* 面包屑分隔符（复刻原.breadcrumb span样式） */
+                .breadcrumb-separator {
+                    color: #999;
+                }
+
+                /* 右侧区域（复刻原.right样式） */
+                .nav-right {
+                    margin-left: auto;
+                    display: flex;
+                    align-items: center;
+                }
+
+                /* 用户导航区（复刻原.user-nav样式） */
+                .user-nav {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                }
+
+                /* 导航链接（复刻原.link样式） */
+                .nav-link {
+                    color: inherit;
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 2rem;
+                    height: 2rem;
+                    border-radius: 50%;
+                    transition: background-color 0.2s;
+                }
+
+                .nav-link:hover {
+                    background-color: var(--lfe-color--grey-2);
+                }
+
+                /* 图标样式（复刻原.svg-inline--fa样式） */
+                .icon {
+                    width: 1.2rem;
+                    height: 1.2rem;
+                    fill: currentColor;
+                }
+
+                .icon.pen-swirl.icon-button {
+                    width: 1.3rem;
+                    height: 1.3rem;
+                    /* 原icon-button类尺寸微调 */
+                }
+
+                /* 编辑按钮容器（无额外样式，仅继承） */
+                .editor-container,
+                .editor-wrapper {
+                    display: inline-block;
+                }
+
+                /* 用户头像（复刻原.avatar样式） */
+                .user-avatar {
+                    width: 2rem;
+                    height: 2rem;
+                    border-radius: 50%;
+                    overflow: hidden;
+                }
+
+                /* 头像图片（复刻原.avatar img样式） */
+                .avatar-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+
+                /* 头像链接（无额外样式，仅继承） */
+                .avatar-link {
+                    display: block;
+                }
+            </style>
+        </div>
+
+        <div
+            style="font-size: 16px; color: #404040; font-family: -apple-system,BlinkMacSystemFont,Helvetica Neue,PingFang SC,Noto Sans,Noto Sans SC,Source Sans Pro,Source Han Sans,Segoe UI,Arial,Microsoft YaHei,WenQuanYi Micro Hei,sans-serif; background: #fff; padding: 1.25em .75em; position: fixed; top: 3.5rem; left: 0; bottom: 0; box-sizing: border-box; max-width: 240px; line-height: 1.2; overflow: hidden; width: 64px; box-shadow: 1px 0 3px rgba(26,26,26,.1); z-index: 99; transition: all .25s ease-out;">
+            <style>
+                /* 整合的CSS变量和样式 */
+                :root {
+                    /* overflow: hidden hidden; */
+                    overflow-y: hidden;
+                    -webkit-text-size-adjust: 100%;
+                    --fa-font-solid: normal 900 1em/1 "Font Awesome 6 Free";
+                    --fa-font-regular: normal 400 1em/1 "Font Awesome 6 Free";
+                    --fa-font-light: normal 300 1em/1 "Font Awesome 6 Pro";
+                    --fa-font-thin: normal 100 1em/1 "Font Awesome 6 Pro";
+                    --fa-font-duotone: normal 900 1em/1 "Font Awesome 6 Duotone";
+                    --fa-font-brands: normal 400 1em/1 "Font Awesome 6 Brands";
+                    --usable-height: 100vh;
+                    --usable-width: 100vw;
+
+                    /* 颜色变量 */
+                    --lcolor--lapis-1: 202, 213, 232;
+                    --lfe-color--lapis-1: #cad5e8;
+                    --lcolor--lapis-2: 114, 141, 207;
+                    --lfe-color--lapis-2: #728dcf;
+                    --lcolor--lapis-3: 41, 73, 180;
+                    --lfe-color--lapis-3: #2949b4;
+                    --lcolor--blue-3: 52, 152, 219;
+                    --lfe-color--blue-3: #3498db;
+                    --lcolor--green-3: 82, 196, 26;
+                    --lfe-color--green-3: #52c41a;
+                    --lcolor--red-3: 231, 76, 60;
+                    --lfe-color--red-3: #e74c3c;
+                    --lcolor--grey-1: 250, 250, 250;
+                    --lfe-color--grey-1: #fafafa;
+                    --lcolor--grey-2: 232, 232, 232;
+                    --lfe-color--grey-2: #e8e8e8;
+                    --lcolor--grey-3: 191, 191, 191;
+                    --lfe-color--grey-3: #bfbfbf;
+                    --lcolor--grey-4: 89, 89, 89;
+                    --lfe-color--grey-4: #595959;
+                    --lcolor--grey-5: 38, 38, 38;
+                    --lfe-color--grey-5: #262626;
+
+                    --lfe-color--primary: #3498db;
+                    --lfe-color--success: #52c41a;
+                    --lfe-color--warning: #ffc116;
+                    --lfe-color--error: #e74c3c;
+                    --lfe-code-font: "Consolas";
+                }
+
+                .nav-group ul {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                }
+
+                .nav-group li {
+                    margin: .25em 0;
+                    text-overflow: ellipsis;
+                    overflow-y: hidden;
+                    white-space: nowrap;
+                }
+
+                .nav-group a {
+                    display: flex;
+                    align-items: center;
+                    text-decoration: none;
+                    color: inherit;
+                    padding: 0.5em;
+                    border-radius: 4px;
+                    transition: background-color 0.2s;
+                }
+
+                .nav-group a:hover {
+                    background-color: rgba(52, 152, 219, 0.1);
+                }
+
+                /* 修复图标显示问题 */
+                .sidebar .icon {
+                    width: 1.25em;
+                    height: 1.25em;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 0.5em;
+                    color: var(--lfe-color--grey-4);
+                    flex-shrink: 0;
+                }
+
+                .sidebar .icon svg {
+                    width: 100%;
+                    height: 100%;
+                    fill: currentColor;
+                    object-fit: contain;
+                }
+
+                /* 调整特定图标的viewBox以使其居中 */
+                .sidebar .icon.fa-house svg {
+                    transform: scale(1.1);
+                }
+
+                .sidebar .icon.fa-book svg {
+                    transform: scale(1.05);
+                }
+
+                .sidebar .icon.fa-graduation-cap svg {
+                    transform: scale(1.1);
+                }
+
+                .sidebar .icon.fa-clipboard-list-check svg {
+                    transform: scale(1.05);
+                }
+
+                .sidebar .icon.fa-signal svg {
+                    transform: scale(1.1);
+                }
+
+                .sidebar .icon.fa-chart-pie svg {
+                    transform: scale(1.05);
+                }
+
+                .sidebar .icon.fa-comments svg {
+                    transform: scale(1.05);
+                }
+
+                .sidebar .icon.fa-newspaper svg {
+                    transform: scale(1.05);
+                }
+
+                .nav-scrollbar::-webkit-scrollbar {
+                    width: 0px;
+                }
+
+                .nav-scrollbar::-webkit-scrollbar-track {
+                    background: var(--lfe-color--grey-2);
+                }
+
+                .nav-scrollbar::-webkit-scrollbar-thumb {
+                    background: var(--lfe-color--grey-3);
+                    border-radius: 3px;
+                }
+            </style>
+
+            <nav class="sidebar lside bar hide nav-scrollbar">
+                <div class="nav-group">
+                    <ul>
+                        <li title="主页">
+                            <a disabled="false">
+                                <span class="icon fa-house">
+                                    <svg class="svg-inline--fa fa-house" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="house" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+                                        <path class="" fill="currentColor"
+                                            d="M303.5 5.7c-9-7.6-22.1-7.6-31.1 0l-264 224c-10.1 8.6-11.3 23.7-2.8 33.8s23.7 11.3 33.8 2.8L64 245.5 64 432c0 44.2 35.8 80 80 80l288 0c44.2 0 80-35.8 80-80l0-186.5 24.5 20.8c10.1 8.6 25.3 7.3 33.8-2.8s7.3-25.3-2.8-33.8l-264-224zM112 432l0-227.2L288 55.5 464 204.8 464 432c0 17.7-14.3 32-32 32l-48 0 0-152c0-22.1-17.9-40-40-40l-112 0c-22.1 0-40 17.9-40 40l0 152-48 0c-17.7 0-32-14.3-32-32zm128 32l0-144 96 0 0 144-96 0z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="题库">
+                            <a class="" disabled="false">
+                                <span class="icon fa-book">
+                                    <svg class="svg-inline--fa fa-book" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="book" role="img" xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 448 512">
+                                        <path class="" fill="currentColor"
+                                            d="M0 88C0 39.4 39.4 0 88 0L392 0c30.9 0 56 25.1 56 56l0 288c0 22.3-13.1 41.6-32 50.6l0 69.4 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24L80 512c-44.2 0-80-35.8-80-80c0-2.7 .1-5.4 .4-8L0 424 0 88zM80 400c-17.7 0-32 14.3-32 32s14.3 32 32 32l288 0 0-64L80 400zM48 358.7c9.8-4.3 20.6-6.7 32-6.7l312 0c4.4 0 8-3.6 8-8l0-288c0-4.4-3.6-8-8-8L88 48C65.9 48 48 65.9 48 88l0 270.7zM152 112l176 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-176 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 80l176 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-176 0c-13.3 0-24-10.7-24-24s10.7-24 24-24z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="网校">
+                            <a disabled="false">
+                                <span class="icon fa-graduation-cap">
+                                    <svg class="svg-inline--fa fa-graduation-cap" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="graduation-cap" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
+                                        <path class="" fill="currentColor"
+                                            d="M320 80c2.5 0 5 .4 7.4 1.3l218 78.7-218 78.7c-2.4 .9-4.9 1.3-7.4 1.3s-5-.4-7.4-1.3L184.9 192.6l140.8-52.8c8.3-3.1 12.5-12.3 9.4-20.6s-12.3-12.5-20.6-9.4L154.9 169.6c-5.2 2-10.3 4.2-15.3 6.6L94.7 160l218-78.7c2.4-.9 4.9-1.3 7.4-1.3zM15.8 182.6l77.4 27.9c-27.2 28.7-43.7 66.7-45.1 107.7c-.1 .6-.1 1.2-.1 1.8c0 28.4-10.8 57.8-22.3 80.8c-6.5 13-13.9 25.8-22.5 37.6C0 442.7-.9 448.3 .9 453.4s6 8.9 11.2 10.2l64 16c4.2 1.1 8.7 .3 12.4-2s6.3-6.1 7.1-10.4c8.6-42.8 4.3-81.2-2.1-108.7c-3.2-14-7.5-28.3-13.4-41.5c1.9-37 19.2-70.9 46.7-94.2l169.5 61.2c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.4 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32s-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6zm480.8 80l-46.5 16.8 12.7 120.5c-4.8 3.5-12.8 8-24.6 12.6C410 423.6 368 432 320 432s-90-8.4-118.3-19.4c-11.8-4.6-19.8-9.2-24.6-12.6l12.7-120.5-46.5-16.8L128 408c0 35.3 86 72 192 72s192-36.7 192-72L496.7 262.6zM467.4 396c0 0-.1 .1-.3 .4c.2-.3 .3-.4 .3-.4z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="训练题单">
+                            <a class="" disabled="false">
+                                <span class="icon fa-clipboard-list-check">
+                                    <svg class="svg-inline--fa fa-clipboard-list-check" aria-hidden="true"
+                                        focusable="false" data-prefix="far" data-icon="clipboard-list-check" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512">
+                                        <path class="" fill="currentColor"
+                                            d="M320 64l-40 0-9.6 0C263 27.5 230.7 0 192 0s-71 27.5-78.4 64L104 64 64 64C28.7 64 0 92.7 0 128L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-320c0-35.3-28.7-64-64-64zM80 112l0 24c0 13.3 10.7 24 24 24l88 0 88 0c13.3 0 24-10.7 24-24l0-24 16 0c8.8 0 16 7.2 16 16l0 320c0 8.8-7.2 16-16 16L64 464c-8.8 0-16-7.2-16-16l0-320c0-8.8 7.2-16 16-16l16 0zm88-32a24 24 0 1 1 48 0 24 24 0 1 1 -48 0zm3.3 155.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L112 249.4 99.3 236.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6l24 24c6.2 6.2 16.4 6.2 22.6 0l48-48zM192 272c0 8.8 7.2 16 16 16l64 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-64 0c-8.8 0-16 7.2-16 16zm-32 96c0 8.8 7.2 16 16 16l96 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-96 0c-8.8 0-16 7.2-16 16zm-48 24a24 24 0 1 0 0-48 24 24 0 1 0 0 48z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="比赛">
+                            <a class="" disabled="false">
+                                <span class="icon fa-signal">
+                                    <svg class="svg-inline--fa fa-signal" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="signal" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
+                                        <path class="" fill="currentColor"
+                                            d="M576 0c13.3 0 24 10.7 24 24l0 464c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-464c0-13.3 10.7-24 24-24zM448 96c13.3 0 24 10.7 24 24l0 368c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-368c0-13.3 10.7-24 24-24zM320 192c13.3 0 24 10.7 24 24l0 272c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-272c0-13.3 10.7-24 24-24zM192 288c13.3 0 24 10.7 24 24l0 176c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-176c0-13.3 10.7-24 24-24zM64 384c13.3 0 24 10.7 24 24l0 80c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-80c0-13.3 10.7-24 24-24z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="评测记录">
+                            <a class="" disabled="false">
+                                <span class="icon fa-chart-pie">
+                                    <svg class="svg-inline--fa fa-chart-pie" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="chart-pie" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+                                        <path class="" fill="currentColor"
+                                            d="M493.1 192L352 192l0-141.1C423.5 64 480 120.5 493.1 192zM352 240l175.4 0c9 0 16.6-7 16.6-16C544 100.3 443.7 0 320 0c-9 0-16 7.6-16 16.6L304 192l0 48 48 0zM222.1 321.9L348.4 448.2C325 458.4 299.2 464 272 464C166 464 80 378 80 272c0-83.6 53.4-154.7 128-181.1L208 288c0 12.7 5.1 24.9 14.1 33.9zM239 34.3C122.1 50.3 32 150.7 32 272c0 132.5 107.5 240 240 240c51.8 0 99.8-16.4 139-44.3c7.7-5.5 8.2-16.5 1.5-23.1L256 288l0-238.4c0-9.2-7.8-16.6-17-15.4zM558.4 288L320 288 478.7 446.7c5.8 5.8 15.2 6.3 21.2 .7c39.3-36.7 66.2-86.5 73.9-142.3c1.3-9.2-6.1-17-15.4-17z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nav-group">
+                    <ul>
+                        <li title="讨论区">
+                            <a class="" disabled="false">
+                                <span class="icon fa-comments">
+                                    <svg class="svg-inline--fa fa-comments" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="comments" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
+                                        <path class="" fill="currentColor"
+                                            d="M88.2 309.1c9.8-18.3 6.8-40.8-7.5-55.8C59.4 230.9 48 204 48 176c0-63.5 63.8-128 160-128s160 64.5 160 128s-63.8 128-160 128c-13.1 0-25.8-1.3-37.8-3.6c-10.4-2-21.2-.6-30.7 4.2c-4.1 2.1-8.3 4.1-12.6 6c-16 7.2-32.9 13.5-49.9 18c2.8-4.6 5.4-9.1 7.9-13.6c1.1-1.9 2.2-3.9 3.2-5.9zM208 352c114.9 0 208-78.8 208-176S322.9 0 208 0S0 78.8 0 176c0 41.8 17.2 80.1 45.9 110.3c-.9 1.7-1.9 3.5-2.8 5.1c-10.3 18.4-22.3 36.5-36.6 52.1c-6.6 7-8.3 17.2-4.6 25.9C5.8 378.3 14.4 384 24 384c43 0 86.5-13.3 122.7-29.7c4.8-2.2 9.6-4.5 14.2-6.8c15.1 3 30.9 4.5 47.1 4.5zM432 480c16.2 0 31.9-1.6 47.1-4.5c4.6 2.3 9.4 4.6 14.2 6.8C529.5 498.7 573 512 616 512c9.6 0 18.2-5.7 22-14.5c3.8-8.8 2-19-4.6-25.9c-14.2-15.6-26.2-33.7-36.6-52.1c-.9-1.7-1.9-3.4-2.8-5.1C622.8 384.1 640 345.8 640 304c0-94.4-87.9-171.5-198.2-175.8c4.1 15.2 6.2 31.2 6.2 47.8l0 .6c87.2 6.7 144 67.5 144 127.4c0 28-11.4 54.9-32.7 77.2c-14.3 15-17.3 37.6-7.5 55.8c1.1 2 2.2 4 3.2 5.9c2.5 4.5 5.2 9 7.9 13.6c-17-4.5-33.9-10.7-49.9-18c-4.3-1.9-8.5-3.9-12.6-6c-9.5-4.8-20.3-6.2-30.7-4.2c-12.1 2.4-24.8 3.6-37.8 3.6c-61.7 0-110-26.5-136.8-62.3c-16 5.4-32.8 9.4-50 11.8C279 439.8 350 480 432 480z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                        <li title="文章广场">
+                            <a class="" disabled="false">
+                                <span class="icon fa-newspaper">
+                                    <svg class="svg-inline--fa fa-newspaper" aria-hidden="true" focusable="false"
+                                        data-prefix="far" data-icon="newspaper" role="img"
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                                        <path class="" fill="currentColor"
+                                            d="M168 80c-13.3 0-24 10.7-24 24l0 304c0 8.4-1.4 16.5-4.1 24L440 432c13.3 0 24-10.7 24-24l0-304c0-13.3-10.7-24-24-24L168 80zM72 480c-39.8 0-72-32.2-72-72L0 112C0 98.7 10.7 88 24 88s24 10.7 24 24l0 296c0 13.3 10.7 24 24 24s24-10.7 24-24l0-304c0-39.8 32.2-72 72-72l272 0c39.8 0 72 32.2 72 72l0 304c0 39.8-32.2 72-72 72L72 480zM176 136c0-13.3 10.7-24 24-24l96 0c13.3 0 24 10.7 24 24l0 80c0 13.3-10.7 24-24 24l-96 0c-13.3 0-24-10.7-24-24l0-80zm200-24l32 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-32 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 80l32 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-32 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zM200 272l208 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-208 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 80l208 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-208 0c-13.3 0-24-10.7-24-24s10.7-24 24-24z">
+                                        </path>
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+
+
+        <div id="status-message" aria-live="polite"></div>
+
+        <!-- 回合计数器（左上） -->
+        <div id="turn-counter">
+            <span class="turn-label">回合:</span>
+            <span id="turn-number">1</span>
+        </div>
+
+        <!-- 排行榜（右上） -->
+        <div id="game-leaderboard" aria-hidden="true">
+            <table>
+                <thead>
+                    <tr>
+                        <td>玩家</td>
+                        <td class="in-game-col">军队</td>
+                        <td class="in-game-col">领地</td>
+                        <td class="pre-game-col">状态</td>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="game-area">
+            <div id="grid" class="grid-container" role="grid" aria-label="游戏棋盘"></div>
+        </div>
+    </div>
+
+    <!-- 在index.html的body末尾，script标签前添加设置按钮 -->
+    <button id="settings-btn" aria-label="设置"
+        style="position:fixed;bottom:10px;right:10px;width:40px;height:40px;z-index:1000;background:url('/img/settings.png') center/cover no-repeat;border:none;"></button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/game.js"></script>
+</body>
+
+</html>
