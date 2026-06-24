@@ -158,6 +158,7 @@ class Game {
     this.usernameMaxLength = 12;
     this.defeated = false; // 新增：标记玩家是否被击败
     this.domGrid = []; 
+    this.lobbyMaxPlayers = 0;
 
     this.gridElement = document.getElementById('grid');
     this.turnNumberElement = document.getElementById('turn-number');
@@ -269,6 +270,7 @@ class Game {
     }
   }
 
+  // game.js - initUI 方法修改
   initUI() {
     const gameContainer = document.querySelector('.container');
 
@@ -279,6 +281,13 @@ class Game {
         <div id="username-display">用户名: ${this.username}</div>
         <input type="text" id="room-id-input" placeholder="输入房间ID (4位小写英文字母)" maxlength="4">
         <button id="join-create-btn">加入房间</button>
+        <div id="ai-controls" style="display:none;margin-top:12px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="ai-count-input" min="1" value="1" style="margin:0;flex:1;" aria-label="AI 数量">
+            <button id="add-ai-btn" type="button" style="margin:0;flex:1;">添加 AI</button>
+          </div>
+          <div id="ai-count-hint" style="color:#ddd;font-size:12px;margin-top:8px;"></div>
+        </div>
       </div>
     `;
     gameContainer.insertBefore(this.roomUI, gameContainer.firstChild);
@@ -293,7 +302,18 @@ class Game {
 
     const joinCreateBtn = document.getElementById('join-create-btn');
     joinCreateBtn.addEventListener('click', () => this.joinOrCreateRoom());
-    if (!this.username || !this.username.trim()) joinCreateBtn.disabled = true;
+    this.aiControls = document.getElementById('ai-controls');
+    this.aiCountInput = document.getElementById('ai-count-input');
+    this.addAIButton = document.getElementById('add-ai-btn');
+    this.aiCountHint = document.getElementById('ai-count-hint');
+    if (this.addAIButton) {
+      this.addAIButton.addEventListener('click', () => this.addAIPlayers());
+    }
+    
+    // 如果没有用户名，禁用按钮
+    if (!this.username || !this.username.trim() || this.username === 'undefined') {
+        joinCreateBtn.disabled = true;
+    }
 
     this.readyButton.addEventListener('click', () => this.playerReady());
     this.settingsButton.addEventListener('click', () => this.showSettings());
@@ -301,21 +321,27 @@ class Game {
     const pathRoomId = (window.location.pathname || '/').replace(/\//g, '');
     if (pathRoomId && pathRoomId.length === 4 && /^[a-z]{4}$/.test(pathRoomId)) {
       document.getElementById('room-id-input').value = pathRoomId;
+      
+      // --- 新增：自动加入房间逻辑 ---
+      // 只有当有合法的房间号且有用户名时，才自动尝试加入
+      if (this.username && this.username.trim() && this.username !== 'undefined') {
+          console.log("检测到房间号和用户名，正在自动加入...");
+          // 稍微延迟确保 Socket 连接就绪
+          setTimeout(() => {
+              if (!this.hasJoinedRoom) {
+                  this.joinOrCreateRoom();
+              }
+          }, 300);
+      }
     }
 
-    // --- 修改：优化的事件绑定逻辑 ---
     if (!this.gridElement) this.gridElement = document.getElementById('grid');
     
     if (this.gridElement) {
-        // 关键 1: 启用硬件加速和禁止双击缩放
         this.gridElement.style.touchAction = 'manipulation';
-        
-        // 关键 2: 使用 pointerup 提升点击响应速度
-        // 移除旧的监听器以防重复绑定 (如果这是热更新)
         if (this._boundGridHandler) {
             this.gridElement.removeEventListener('pointerup', this._boundGridHandler);
         }
-        
         this._boundGridHandler = this.handleGridClick.bind(this);
         this.gridElement.addEventListener('pointerup', this._boundGridHandler);
     }
@@ -325,6 +351,12 @@ class Game {
     this.socket.on('roomCreated', (data) => this.handleRoomCreated(data));
     this.socket.on('roomJoined', (data) => this.handleRoomJoined(data));
     this.socket.on('roomLobbyUpdate', (data) => this.renderLobbyList(data));
+    this.socket.on('aiPlayersAdded', (data) => {
+      this.showMessage(`已添加 ${data.count || 0} 个 AI`);
+    });
+    this.socket.on('aiAddError', (data) => {
+      this.showMessage((data && data.message) ? data.message : '无法添加 AI');
+    });
     this.socket.on('gameStart', (data) => this.handleGameStart(data));
     this.socket.on('tileSelected', (data) => this.handleTileSelected(data));
     this.socket.on('armyMoved', (data) => this.handleArmyMoved(data));
@@ -359,13 +391,15 @@ class Game {
     document.addEventListener('keydown', (e) => this.handleKeyDown(e));
     window.addEventListener('resize', () => { if (this.gameStarted) this.renderGrid(); });
   }
+
+  // 优化 serverShutdown 处理 (更强制的关闭)
   showShutdownModal() {
     const existing = document.getElementById('shutdown-modal');
     if (existing) return;
 
     const modal = document.createElement('div');
     modal.id = 'shutdown-modal';
-    modal.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);z-index:9999;backdrop-filter:blur(5px);';
+    modal.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.95);z-index:9999;backdrop-filter:blur(5px);';
     
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:#222;padding:30px;border-radius:12px;min-width:320px;color:#fff;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid #444;';
@@ -380,51 +414,28 @@ class Game {
     h.style.marginBottom = '12px';
     
     const p = document.createElement('p'); 
-    p.textContent = '服务器已停止运行或正在维护。'; 
+    p.textContent = '服务器已停止运行。页面即将关闭。'; 
     p.style.cssText = 'color:#bbb;margin-bottom:24px;line-height:1.5;';
-
-    const btn = document.createElement('button'); 
-    btn.textContent = '关闭页面'; 
-    btn.style.cssText = 'padding:12px 24px;background:#e74c3c;border:none;color:#fff;cursor:pointer;border-radius:6px;font-size:16px;font-weight:bold;transition:background 0.2s;';
-    btn.onmouseover = () => btn.style.background = '#c0392b';
-    btn.onmouseout = () => btn.style.background = '#e74c3c';
-
-    
-    setTimeout(() => {
-      document.body.innerHTML = '';
-      document.body.style.background = '#000';
-      window.location.href = "about:blank"; 
-
-      window.close();
-    }, 200);
-
-    // 尝试关闭页面，如果失败（浏览器限制），则跳转空白页
-    btn.addEventListener('click', () => {
-      // 1. 尝试标准关闭
-      try {
-        window.close();
-      } catch(e) {}
-
-      // 2. 如果上面没生效（大多数情况），提示用户手动关闭或跳转
-      setTimeout(() => {
-        document.body.innerHTML = '';
-        document.body.style.background = '#000';
-        const msg = document.createElement('div');
-        msg.textContent = '您可以直接关闭此标签页。';
-        msg.style.cssText = 'color:#fff;text-align:center;margin-top:100px;font-family:sans-serif;';
-        document.body.appendChild(msg);
-        
-        // 可选：跳转到空白页
-        window.location.href = "about:blank"; 
-      }, 300);
-    });
 
     wrap.appendChild(icon);
     wrap.appendChild(h);
     wrap.appendChild(p);
-    wrap.appendChild(btn);
     modal.appendChild(wrap);
     document.body.appendChild(modal);
+
+    // 立即清除所有游戏界面
+    document.body.classList.remove('game-started');
+    if (this.gridElement) this.gridElement.innerHTML = '';
+
+    // 强制跳转逻辑
+    setTimeout(() => {
+        // 尝试关闭
+        window.close();
+        
+        // 如果 window.close 被阻止（通常会被阻止），则跳转到空白页
+        // 这至少能"清空"当前游戏状态
+        window.location.href = "about:blank";
+    }, 500);
   }
 
   renderLobbyList(data) {
@@ -434,6 +445,11 @@ class Game {
 
     leaderboardBody.innerHTML = ''; // 清空现有列表
 
+    this.lobbyMaxPlayers = maxPlayers || 0;
+    const occupiedCount = players ? Object.keys(players).length : 0;
+    const remainingSlots = Math.max(0, (maxPlayers || 0) - occupiedCount);
+    this.updateAIControls(remainingSlots);
+
     for (let i = 1; i <= maxPlayers; i++) {
       const player = players[i];
       const row = document.createElement('tr');
@@ -442,7 +458,7 @@ class Game {
         // 玩家槽位已占用
         const nameCell = document.createElement('td');
         nameCell.className = 'leaderboard-name';
-        nameCell.textContent = player.name;        
+        nameCell.textContent = player.isAI ? `${player.name} (AI)` : player.name;        
         // 修改：直接使用服务器发送的颜色
         nameCell.style.backgroundColor = player.color || '#888'; 
 
@@ -454,7 +470,10 @@ class Game {
 
         const statusCell = document.createElement('td');
         statusCell.className = 'pre-game-col';
-        if (player.isReady) {
+        if (player.isAI) {
+          statusCell.textContent = 'AI 已就绪';
+          statusCell.classList.add('player-status-ready');
+        } else if (player.isReady) {
           statusCell.textContent = '✔️ 已准备';
           statusCell.classList.add('player-status-ready');
         } else {
@@ -479,6 +498,28 @@ class Game {
         row.appendChild(document.createElement('td')); // status
       }
       leaderboardBody.appendChild(row);
+    }
+  }
+
+  updateAIControls(remainingSlots) {
+    if (!this.aiControls || !this.aiCountInput || !this.addAIButton) return;
+
+    const shouldShow = !!(this.roomId && this.playerId && !this.gameStarted);
+    this.aiControls.style.display = shouldShow ? 'block' : 'none';
+    if (!shouldShow) return;
+
+    const remaining = Math.max(0, remainingSlots || 0);
+    this.aiCountInput.max = String(Math.max(1, remaining));
+    if (!this.aiCountInput.value || parseInt(this.aiCountInput.value, 10) > remaining) {
+      this.aiCountInput.value = remaining > 0 ? String(remaining) : '1';
+    }
+
+    this.aiCountInput.disabled = remaining <= 0;
+    this.addAIButton.disabled = remaining <= 0;
+    if (this.aiCountHint) {
+      this.aiCountHint.textContent = remaining > 0
+        ? `剩余空位：${remaining}`
+        : '房间已满';
     }
   }
 
@@ -521,6 +562,24 @@ class Game {
   }
 
   // 修改 showSettings 方法中的事件监听
+  addAIPlayers() {
+    if (!this.roomId || !this.playerId) {
+      this.showMessage('请先加入房间');
+      return;
+    }
+
+    const count = parseInt(this.aiCountInput && this.aiCountInput.value, 10);
+    if (!Number.isFinite(count) || count < 1) {
+      this.showMessage('请输入有效的 AI 数量');
+      return;
+    }
+
+    this.socket.emit('addAIPlayers', {
+      roomId: this.roomId,
+      count
+    });
+  }
+
   showSettings() {
     const existing = document.getElementById('settings-modal');
     if (existing) return;
@@ -622,22 +681,21 @@ class Game {
     console.log(`房间创建成功，ID: ${data.roomId}, 玩家ID: ${data.playerId}`);
   }
 
-  // 修改handlePlayerDefeated方法
   handlePlayerDefeated(data) {
     // 标记玩家为被击败状态
     this.defeated = true;
     this.selectedTile = null;
     
-    // 更新游戏状态，显示完整地图
+    // 注意：不要设置 this.gameOver = true，因为游戏对其他人还在继续
+    // 只有当收到 'gameOver' 事件时才设置 this.gameOver
+    
+    // 更新游戏状态
     if (data.grid) this.tileStatus = data.grid;
     if (data.stats) this.stats = data.stats;
 
-    // 如果没有提供视野，则显示所有格子
-    this.vision = new Set();
-    for (let i = 0; i < this.GRID_SIZE; i++) {
-      for (let j = 0; j < this.GRID_SIZE; j++) {
-        this.vision.add(`${i},${j}`);
-      }
+    // 更新视野（服务器现在会为战败玩家发送全图视野）
+    if (data.vision) {
+        this.vision = new Set(data.vision);
     }
     
     this.renderGrid();
@@ -777,15 +835,15 @@ class Game {
   }
 
   handleArmyMoved(data) {
-    if (data.source && data.target) {
+    if (data.grid) {
+      this.tileStatus = data.grid;
+    } else if (data.source && data.target) {
       if (this.tileStatus[data.source.x] && this.tileStatus[data.source.x][data.source.y]) {
         this.tileStatus[data.source.x][data.source.y] = data.source;
       }
       if (this.tileStatus[data.target.x] && this.tileStatus[data.target.x][data.target.y]) {
         this.tileStatus[data.target.x][data.target.y] = data.target;
       }
-    } else if (data.grid) {
-      this.tileStatus = data.grid;
     }
     if (data.stats) this.stats = data.stats;
     if (data.vision) this.vision = new Set(data.vision);
@@ -1006,7 +1064,7 @@ class Game {
             arrowLayer.innerHTML = ''; 
 
             const key = `${origX},${origY}`;
-            const isVisible = this.vision.has(key) || this.defeated || this.gameOver;
+            const isVisible = this.vision.has(key) || this.gameOver;
 
             // --- 渲染地形和单位 (受视野限制) ---
             if (isVisible) {
@@ -1087,7 +1145,7 @@ class Game {
     
     const key = `${origX},${origY}`;
     // 判断该格子是否在当前视野内
-    const isVisible = this.vision.has(key) || this.defeated || this.gameOver;
+    const isVisible = this.vision.has(key) || this.gameOver;
     
     const originalTile = this.tileStatus[origX] && this.tileStatus[origX][origY];
     if (!originalTile) return;
@@ -1232,54 +1290,126 @@ class Game {
     closeButton.addEventListener('click', () => document.body.removeChild(modal));
   }
 
-handleKeyDown(e) {
-  // 新增：如果玩家被击败，不响应任何键盘操作
-  if (this.defeated) return;
-  
-  if (!this.selectedTile || this.gameOver || !this.gameStarted) return;
-  
+  handleKeyDown(e) {
+    // 如果玩家被击败，不响应任何键盘操作
+    if (this.defeated) return;
+    if (!this.selectedTile || this.gameOver || !this.gameStarted) return;
+    
     const key = e.key.toLowerCase();
-  
-    if(key === 'q') {
-      if(this.player) {
-        this.player.clearMoves();
-      }
-      return;
-    }
-  
-    if(key === 'e') {
-      if(this.player && this.player.moveQueue.length > 0) {
-        const lastMove = this.player.moveQueue.pop();
-        const sourceKey = `${lastMove.source.x},${lastMove.source.y}`;
-        this.selectedTile =  this.tileStatus[lastMove.source.x][lastMove.source.y]; 
-        this.player.pendingMoves.delete(sourceKey);
+
+    // Q 键：撤销全部移动计划
+    if (key === 'q') {
+      if (this.player) {
+        // 清空所有移动队列和待处理箭头
+        this.player.moveQueue = [];
+        this.player.pendingMoves.clear();
+        
+        // 取消当前选中（如果需要保留选中，可注释以下部分）
+        if (this.selectedTile) {
+          const oldDisplay = this.transformCoordinate(this.selectedTile.x, this.selectedTile.y);
+          if (this.domGrid[oldDisplay.x]?.[oldDisplay.y]) {
+            this.domGrid[oldDisplay.x][oldDisplay.y].classList.remove('selected');
+          }
+          this.selectedTile = null;
+        }
+        
+        // 重新渲染以清除所有箭头（也可手动清理，但 renderGrid 确保一致性）
         this.renderGrid();
       }
       return;
     }
-  
-    // 在handleKeyDown方法中添加z键处理
+
+    // --- 撤回逻辑优化 (E键) ---
+    if(key === 'e') {
+      if(this.player && this.player.moveQueue.length > 0) {
+        // 1. 弹出最后一个移动
+        const lastMove = this.player.moveQueue.pop();
+        const sourceKey = `${lastMove.source.x},${lastMove.source.y}`;
+        
+        // 2. 从 pendingMoves 中移除对应的箭头
+        if (this.player.pendingMoves.has(sourceKey)) {
+          const moves = this.player.pendingMoves.get(sourceKey);
+          // 移除数组中最后一个匹配目标的移动
+          const index = moves.findIndex(m => m.target.x === lastMove.target.x && m.target.y === lastMove.target.y); // 简单起见，移除最后一个
+          // 更严谨的做法是移除数组尾部
+          moves.pop(); 
+          if (moves.length === 0) {
+            this.player.pendingMoves.delete(sourceKey);
+          }
+        }
+
+        // 3. 立即更新选中框位置（视觉回退）
+        // 移除当前选中
+        const currentDisplay = this.transformCoordinate(this.selectedTile.x, this.selectedTile.y);
+        if (this.domGrid[currentDisplay.x] && this.domGrid[currentDisplay.x][currentDisplay.y]) {
+            this.domGrid[currentDisplay.x][currentDisplay.y].classList.remove('selected');
+        }
+
+        // 更新数据选中
+        this.selectedTile = this.tileStatus[lastMove.source.x][lastMove.source.y];
+
+        // 添加新选中（回到上一步的起点）
+        const prevDisplay = this.transformCoordinate(this.selectedTile.x, this.selectedTile.y);
+        if (this.domGrid[prevDisplay.x] && this.domGrid[prevDisplay.x][prevDisplay.y]) {
+            this.domGrid[prevDisplay.x][prevDisplay.y].classList.add('selected');
+            
+            // 4. 立即移除 DOM 中的箭头 (无需等待 renderGrid)
+            // 注意：因为我们刚才退回到了 source，所以要移除的是 source 上的箭头
+            const arrowLayer = this.domGrid[prevDisplay.x][prevDisplay.y].querySelector('.arrow-layer');
+            if (arrowLayer && arrowLayer.lastChild) {
+                arrowLayer.removeChild(arrowLayer.lastChild);
+            }
+        }
+      }
+      return;
+    }
+
+    // Z键 分兵
     if (key === 'z') {
       if (this.selectedTile && this.selectedTile.owner === this.playerId && this.selectedTile.army > 1) {
         this.splitArmy(this.selectedTile.x, this.selectedTile.y);
       }
       return;
     }
-  
+
+    // H键 回到皇城
+    if (key === 'h') {
+        let capital = null;
+        for (let i = 0; i < this.GRID_SIZE; i++) {
+          for (let j = 0; j < this.GRID_SIZE; j++) {
+            if (this.tileStatus[i][j].isCapital && this.tileStatus[i][j].owner === this.playerId) { 
+                capital = this.tileStatus[i][j]; 
+                break; 
+            }
+          }
+          if (capital) break;
+        }
+        if (capital) { 
+            // 移除旧选中
+            const oldDisplay = this.transformCoordinate(this.selectedTile.x, this.selectedTile.y);
+            if (this.domGrid[oldDisplay.x]?.[oldDisplay.y]) this.domGrid[oldDisplay.x][oldDisplay.y].classList.remove('selected');
+            
+            this.selectedTile = capital; 
+            
+            // 添加新选中
+            const newDisplay = this.transformCoordinate(capital.x, capital.y);
+            if (this.domGrid[newDisplay.x]?.[newDisplay.y]) this.domGrid[newDisplay.x][newDisplay.y].classList.add('selected');
+        }
+        return;
+    }
+
     const DIR = {
       'w': { dx: -1, dy: 0, arrow: '↑' }, 'arrowup':    { dx: -1, dy: 0, arrow: '↑' },
       'a': { dx:  0, dy: -1, arrow: '←' }, 'arrowleft':  { dx:  0, dy: -1, arrow: '←' },
       's': { dx:  1, dy: 0, arrow: '↓' }, 'arrowdown':   { dx:  1, dy: 0, arrow: '↓' },
       'd': { dx:  0, dy: 1, arrow: '→' }, 'arrowright':  { dx:  0, dy: 1, arrow: '→' }
     };
-  
+
     if (DIR[key]) {
-      e.preventDefault();
+      e.preventDefault(); // 防止滚动
       const dir = DIR[key];
       
-      if (!this.selectedTile) return;
-      
-      // 将选中的原始坐标转换为显示坐标
+      // 1. 计算坐标
       const displayCoord = this.transformCoordinate(this.selectedTile.x, this.selectedTile.y);
       const displayX = displayCoord.x;
       const displayY = displayCoord.y;
@@ -1287,71 +1417,68 @@ handleKeyDown(e) {
       const targetDisplayX = displayX + dir.dx;
       const targetDisplayY = displayY + dir.dy;
       
-      // 将目标显示坐标转换回原始坐标
+      // 2. 边界检查
+      if (targetDisplayX < 0 || targetDisplayX >= this.GRID_SIZE || targetDisplayY < 0 || targetDisplayY >= this.GRID_SIZE) {
+          return;
+      }
+
       const targetOriginalCoord = this.transformCoordinate(targetDisplayX, targetDisplayY, true);
       const targetX = targetOriginalCoord.x;
       const targetY = targetOriginalCoord.y;
       
-      if (targetX >= 0 && targetX < this.GRID_SIZE && targetY >= 0 && targetY < this.GRID_SIZE) {
-        const targetTile = this.tileStatus[targetX][targetY];
-        const targetKey = `${targetX},${targetY}`;
-        const isTargetVisible = this.vision.has(targetKey) || this.defeated || this.gameOver;
-        
-        // 移动逻辑核心：
-        // 允许移动的条件：
-        // 1. 目标完全未知（在迷雾中） -> 允许尝试移动（如果实际上是山脉，服务器或前端executeMove会拦截并消耗移动机会或弹回）
-        // 2. 目标可见 且 不是山脉 -> 允许移动
-        
-        // 如果目标可见 且 是山脉 -> 禁止移动计划
-        if (isTargetVisible && targetTile.type === 'mountain') {
-            // 撞墙了，什么都不做
-            return;
-        }
-
-        // 只要不是“可见的山脉”，都允许加入移动队列
-        this.player.addMoveToQueue(
-          { x: this.selectedTile.x, y: this.selectedTile.y },
-          { x: targetX, y: targetY },
-          dir.arrow
-        );
-        
-        // 移动选中框体验优化：
-        // 即使目标在迷雾中（可能是山脉），我们也先让光标移过去。
-        // 等真正执行移动时，如果发现是山脉，兵力不会动，但光标移动不影响。
-        this.selectedTile = this.tileStatus[targetX][targetY];
+      const targetTile = this.tileStatus[targetX][targetY];
+      const targetKey = `${targetX},${targetY}`;
+      const isTargetVisible = this.vision.has(targetKey) || this.defeated || this.gameOver;
+      
+      // 3. 撞墙检查（如果可见且是山脉）
+      if (isTargetVisible && targetTile.type === 'mountain') {
+          return;
       }
 
-      // 关键优化：快速连按时，本地立即更新选中框位置
-      const oldSelectedX = this.selectedTile?.x;
-      const oldSelectedY = this.selectedTile?.y;
-
+      // 4. 加入移动队列 (逻辑层)
       this.player.addMoveToQueue(
         { x: this.selectedTile.x, y: this.selectedTile.y },
         { x: targetX, y: targetY },
         dir.arrow
       );
       
-      // 立即更新 selectedTile
-      this.selectedTile = this.tileStatus[targetX][targetY];
+      // --- 关键优化：直接 DOM 操作 (视觉层) ---
       
-      // 仅对这两个格子进行重绘，而不是全盘重绘 (或者调用节流后的 renderGrid)
-      this.renderGrid();
-    } else if (key === 'h') {
-      let capital = null;
-      for (let i = 0; i < this.GRID_SIZE; i++) {
-        for (let j = 0; j < this.GRID_SIZE; j++) {
-          if (this.tileStatus[i][j].isCapital && this.tileStatus[i][j].owner === this.playerId) { capital = this.tileStatus[i][j]; break; }
-        }
-        if (capital) break;
+      // A. 绘制箭头 (在当前格子上)
+      const currentTileEl = this.domGrid[displayX][displayY];
+      if (currentTileEl) {
+          // 移除旧选中样式
+          currentTileEl.classList.remove('selected');
+          
+          // 手动添加箭头 DOM，不等待 renderGrid
+          const arrowLayer = currentTileEl.querySelector('.arrow-layer');
+          if (arrowLayer) {
+              const arr = document.createElement('div');
+              arr.className = 'arrow';
+              arr.textContent = dir.arrow;
+              arr.style.position = 'absolute';
+              arr.style.left = '50%'; arr.style.top = '50%';
+              arr.style.transform = 'translate(-50%, -50%)';
+              arr.style.color = '#fff';
+              arr.style.textShadow = '0 0 2px #000';
+              arr.style.zIndex = '10';
+              arrowLayer.appendChild(arr);
+          }
       }
-      if (capital) { 
-        // 将原始坐标转换为显示坐标
-        const displayCoord = this.transformCoordinate(capital.x, capital.y);
-        this.selectedTile = capital; 
-        this.renderGrid(); 
+
+      // B. 移动选中框 (到目标格子)
+      const targetTileEl = this.domGrid[targetDisplayX][targetDisplayY];
+      if (targetTileEl) {
+          targetTileEl.classList.add('selected');
       }
+
+      // C. 更新逻辑选中目标
+      this.selectedTile = this.tileStatus[targetX][targetY];
+
+      // 注意：这里不再调用 this.renderGrid()，从而消除了大量计算造成的延迟
+      // 只有在收到服务器更新（兵力变化、领地占领）时才重绘
     } 
-  }  
+  } 
 }
 
 document.addEventListener('DOMContentLoaded', () => {

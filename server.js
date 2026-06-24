@@ -3,11 +3,11 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const fs = require('fs'); // 新增：引入 fs 模块读取文件
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
-
 
 // 玩家颜色列表（可自由扩展）
 const PLAYER_COLORS = [
@@ -28,6 +28,7 @@ const PLAYER_COLORS = [
   'rgb(180, 127, 202)',  // 淡紫色
   'rgb(180, 153, 113)'   // 土黄色
 ];
+
 // 1. `rgb(255, 0, 0)` — 红色
 // 2. `rgb(39, 146, 255)` — 天蓝色
 // 3. `rgb(0, 128, 0)` — 绿色
@@ -45,9 +46,8 @@ const PLAYER_COLORS = [
 // 15. `rgb(180, 127, 202)` — 淡紫色
 // 16. `rgb(180, 153, 113)` — 土黄色
 
-
 // 配置设置（直接在代码中配置）
-const config = {
+const defaultConfig = {
   ipBlacklist: [], // 修改为IPv4格式
   ipWhitelist: ["192.168.68.43","192.168.45.95","192.168.45.9","192.168.45.139","192.168.45.104","192.168.45.103","192.168.45.93","192.168.45.108"], // 白名单列表
   whitelistMode: false, // 是否启用白名单模式
@@ -56,9 +56,25 @@ const config = {
   maxPlayers: 8 // <-- 新增：房间最大玩家数（根据需要改成 2/4/6）
 };
 
+// 加载配置逻辑
+let config = Object.assign({}, defaultConfig);
+try {
+  const configPath = path.join(__dirname, 'config.json');
+  if (fs.existsSync(configPath)) {
+    const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    // 合并配置，文件配置覆盖默认配置
+    config = Object.assign({}, defaultConfig, fileConfig);
+    console.log('已成功加载 config.json 配置文件');
+  } else {
+    console.log('未找到 config.json，使用默认配置');
+  }
+} catch (err) {
+  console.error('加载配置文件出错:', err);
+}
+
 // 黑名单和白名单管理（使用Set提高查询性能）
-const ipBlacklist = new Set(config.ipBlacklist);
-const ipWhitelist = new Set(config.ipWhitelist);
+const ipBlacklist = new Set(config.ipBlacklist || []);
+const ipWhitelist = new Set(config.ipWhitelist || []);
 const whitelistMode = config.whitelistMode;
 
 function getClientIP(req) {
@@ -126,6 +142,113 @@ app.get('/', (req, res) => {
 const gameStates = {};
 const playerRooms = {};
 const playerNames = {};
+const AI_SOCKET_PREFIX = '__AI_PLAYER__';
+
+function isAISocketId(socketId) {
+  return typeof socketId === 'string' && socketId.indexOf(AI_SOCKET_PREFIX) === 0;
+}
+
+function isAIPlayer(game, playerId) {
+  return !!(game && game.aiPlayers && game.aiPlayers.has(Number(playerId)));
+}
+
+function emitToHumanSocket(socketId, eventName, payload) {
+  if (socketId && !isAISocketId(socketId)) {
+    io.to(socketId).emit(eventName, payload);
+  }
+}
+
+function emitGameUpdateToHumans(game, eventName, extra) {
+  Object.keys(game.players).forEach(pid => {
+    const sId = game.players[pid];
+    if (sId && !isAISocketId(sId)) {
+      const vision = Array.from(game.getPlayerVision(parseInt(pid)));
+      io.to(sId).emit(eventName, Object.assign({
+        stats: game.getStats(),
+        grid: game.tileStatus,
+        vision
+      }, extra || {}));
+    }
+  });
+}
+
+function emitGameOverAndCleanup(roomId, game, winner) {
+  if (!game || game._gameOverCleanupScheduled) return;
+  game.gameOver = true;
+  game._gameOverCleanupScheduled = true;
+
+  Object.keys(game.players).forEach(pid => {
+    const sId = game.players[pid];
+    if (sId && !isAISocketId(sId)) {
+      const fullVision = new Set();
+      for (let i = 0; i < game.GRID_SIZE; i++) {
+        for (let j = 0; j < game.GRID_SIZE; j++) {
+          fullVision.add(`${i},${j}`);
+        }
+      }
+
+      io.to(sId).emit('gameOver', {
+        winner,
+        stats: game.getStats(),
+        grid: game.tileStatus,
+        vision: Array.from(fullVision)
+      });
+    }
+  });
+
+  setTimeout(() => {
+    game.cleanup();
+    delete gameStates[roomId];
+
+    Object.keys(playerRooms).forEach(socketId => {
+      if (playerRooms[socketId] === roomId) {
+        delete playerRooms[socketId];
+      }
+    });
+  }, 1000);
+}
+
+function tryStartGame(roomId) {
+  const game = gameStates[roomId];
+  if (!game || game.gameStarted || game.gameOver) return false;
+
+  const totalPlayers = Object.values(game.players).filter(p => p).length;
+  const readyCount = Object.keys(game.players).filter(pid => game.players[pid] && game.readyPlayers[pid]).length;
+  const allReady = readyCount === totalPlayers && totalPlayers >= 2;
+
+  if (!allReady) return false;
+
+  game.numPlayers = totalPlayers;
+  game.initGame();
+  game.currentTurn = 1;
+
+  Object.keys(game.players).forEach(pid => {
+    const sId = game.players[pid];
+    if (sId && !isAISocketId(sId)) {
+      const vision = Array.from(game.getPlayerVision(parseInt(pid)));
+      const visionTransform = game.playerVisionTransforms[pid] || 0;
+      io.to(sId).emit('gameStart', {
+        gridSize: game.GRID_SIZE,
+        grid: game.tileStatus,
+        playerId: parseInt(pid),
+        roomId: roomId,
+        colors: game.playerColors,
+        names: game.playerNames,
+        stats: game.getStats(),
+        capitals: game.playerCapitals,
+        vision: vision,
+        visionTransform: visionTransform
+      });
+    }
+  });
+
+  game.gameStarted = true;
+  game.startTurnTimer();
+  game.startArmyIncreaseTimer();
+  game.startCapitalIncreaseTimer();
+  game.startAIPlayerTimer();
+  return true;
+}
 
 // 生成 4 位房间号
 function generateRoomId() {
@@ -154,7 +277,8 @@ class Game {
     this.roomId = roomId;
     this.MAX_PLAYERS = (typeof config.maxPlayers === 'number' ? config.maxPlayers : 2);
     this.numPlayers = 0;  // 新增：实际玩家数，启动时设置
-    this.GRID_SIZE = Math.floor(Math.random() * 11) + 20; // 20-30
+    // this.GRID_SIZE = Math.floor(Math.random() * 11) + 20; // 20-30
+    this.GRID_SIZE = 35;
     this.TILE_TYPES = { PLAIN: 'plain', MOUNTAIN: 'mountain', CITY: 'city' };
     this.PLAYERS = { NONE: 0};  // 动态用 pid
     this.CITY_CAPTURE_RANGE = { min: 46, max: 50 };
@@ -175,27 +299,156 @@ class Game {
     this.capitalIncreaseTimer = null;
     this.lastArmyIncreaseTime = Date.now();
     this.gameStarted = false;
+
+    this.ipToTransform = new Map(); // 记录每个IP对应的视角变换
+
+    this.playerIdtoIp = {}; // 记录每一个 id 对应的 ip
+
+    this.playerVisionTransforms = {};   // ← 新增这一行
+    this.aiPlayers = new Set();
+    this.aiMoveTimer = null;
+  }
+
+  addAIPlayers(count) {
+    const added = [];
+    const requested = Math.max(0, parseInt(count, 10) || 0);
+
+    for (let i = 0; i < requested; i++) {
+      let assigned = null;
+      for (let pid = 1; pid <= this.MAX_PLAYERS; pid++) {
+        if (!this.players[pid]) {
+          assigned = pid;
+          break;
+        }
+      }
+
+      if (!assigned) break;
+
+      const aiName = `AI ${this.aiPlayers.size + 1}`;
+      this.players[assigned] = `${AI_SOCKET_PREFIX}:${this.roomId}:${assigned}`;
+      this.playerNames[assigned] = aiName;
+      this.playerColors[assigned] = PLAYER_COLORS[(assigned - 1) % PLAYER_COLORS.length];
+      this.readyPlayers[assigned] = true;
+      this.playerIdtoIp[assigned] = `${AI_SOCKET_PREFIX}:${assigned}`;
+      this.playerVisionTransforms[assigned] = 0;
+      this.aiPlayers.add(assigned);
+      added.push(assigned);
+    }
+
+    return added;
+  }
+
+  startAIPlayerTimer() {
+    if (this.aiMoveTimer) clearInterval(this.aiMoveTimer);
+    if (!this.aiPlayers || this.aiPlayers.size === 0) return;
+
+    this.aiMoveTimer = setInterval(() => {
+      if (this.gameOver || !this.gameStarted) {
+        clearInterval(this.aiMoveTimer);
+        this.aiMoveTimer = null;
+        return;
+      }
+      this.runAIPlayers();
+    }, 700);
+  }
+
+  runAIPlayers() {
+    if (!this.aiPlayers || this.aiPlayers.size === 0) return;
+
+    const shuffledAI = Array.from(this.aiPlayers)
+      .filter(pid => this.players[pid])
+      .sort(() => Math.random() - 0.5);
+
+    for (const playerId of shuffledAI) {
+      if (this.gameOver) return;
+
+      const move = this.chooseAIMove(playerId);
+      if (!move) continue;
+
+      const result = this.moveArmy(move.source, move.target, playerId);
+      emitGameUpdateToHumans(this, 'armyMoved', {
+        source: move.source,
+        target: move.target,
+        playerId
+      });
+
+      if (result && result.gameOver) {
+        console.log(`AI ${playerId} ended room ${this.roomId}, winner: ${result.winner}`);
+        emitGameOverAndCleanup(this.roomId, this, result.winner);
+        return;
+      }
+    }
+  }
+
+  chooseAIMove(playerId) {
+    const candidates = [];
+    const dirs = [
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 }
+    ];
+
+    for (let x = 0; x < this.GRID_SIZE; x++) {
+      for (let y = 0; y < this.GRID_SIZE; y++) {
+        const source = this.tileStatus[x][y];
+        if (!source || source.owner !== playerId || source.army <= 1) continue;
+
+        for (const dir of dirs) {
+          const nx = x + dir.dx;
+          const ny = y + dir.dy;
+          if (nx < 0 || nx >= this.GRID_SIZE || ny < 0 || ny >= this.GRID_SIZE) continue;
+
+          const target = this.tileStatus[nx][ny];
+          if (!target || target.type === this.TILE_TYPES.MOUNTAIN) continue;
+
+          candidates.push({
+            source,
+            target,
+            score: this.scoreAIMove(source, target, playerId)
+          });
+        }
+      }
+    }
+
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0];
+  }
+
+  scoreAIMove(source, target, playerId) {
+    const movingArmy = Math.max(1, source.army - 1);
+    let score = Math.random() * 8;
+
+    if (target.owner && target.owner !== playerId) {
+      score += target.isCapital ? 10000 : 500;
+      score += movingArmy > target.army ? 250 : -120;
+      score += Math.min(source.army, 80);
+      score -= target.army;
+    } else if (target.owner === this.PLAYERS.NONE && target.isCity) {
+      score += movingArmy >= (target.captureCost || 1) ? 350 : 80;
+      score -= (target.captureCost || 0) * 0.5;
+    } else if (target.owner === this.PLAYERS.NONE) {
+      score += 180;
+      score += source.army * 0.25;
+    } else if (target.owner === playerId) {
+      score += 15;
+      score += source.army > target.army + 3 ? 25 : 0;
+    }
+
+    return score;
   }
 
   initGame() {
     if (this.numPlayers < 2) this.numPlayers = 2;
     this.tileStatus = [];
-    
-    // 确保为每个玩家生成不同的随机视角变换
-    this.playerVisionTransforms = {};
-    const availableTransforms = [0, 1, 2, 3, 4, 5, 6]; // 所有可能的变换
-    const usedTransforms = new Set();
-    
+
+    this.deadPlayers = new Set();
+    this.fullVisionPlayers = new Set();
+
+    // 视角变换已在玩家加入时根据IP分配，直接使用
     for (let pid = 1; pid <= this.numPlayers; pid++) {
-      let transform;
-      // 确保每个玩家获得不同的变换
-      do {
-        transform = Math.floor(Math.random() * 7);
-      } while (usedTransforms.has(transform) && usedTransforms.size < Math.min(7, this.numPlayers));
-      
-      usedTransforms.add(transform);
-      this.playerVisionTransforms[pid] = transform;
-      console.log(`房间 ${this.roomId} 玩家 ${pid} 的视角变换: ${transform}`);
+      console.log(`房间 ${this.roomId} 玩家 ${pid} 的视角变换: ${this.playerVisionTransforms[pid]}`);
     }
     
     for (let i = 0; i < this.GRID_SIZE; i++) {
@@ -229,7 +482,6 @@ class Game {
     console.log(`房间 ${this.roomId} 游戏初始化完成，玩家数: ${this.numPlayers}`);
   }
 
-  // 修改 placeCapitals：用 this.numPlayers 代替 this.MAX_PLAYERS
   placeCapitals() {
     const minDistance = Math.floor(this.GRID_SIZE * 0.5);
     const capitals = [];
@@ -284,7 +536,6 @@ class Game {
     }
   }
 
-  // 移除 ensurePathBetweenCapitals 中的无用注释，并简化循环（caps.length -1）
   ensurePathBetweenCapitals() {
     const caps = Object.values(this.playerCapitals);  // 简化获取
     for (let k = 0; k < caps.length - 1; k++) {
@@ -367,25 +618,49 @@ class Game {
         }
       }
       
-      // 如果玩家没有领地了，发送完整视野
+      // 如果玩家没有领地了，处理战败及视野逻辑
       if (!hasTiles && this.players[pid]) {
-        const socketId = this.players[pid];
-        if (socketId) {
-          const fullVision = new Set();
-          for (let i = 0; i < this.GRID_SIZE; i++) {
-            for (let j = 0; j < this.GRID_SIZE; j++) {
-              fullVision.add(`${i},${j}`);
+        if (!this.deadPlayers) this.deadPlayers = new Set();
+        // 防抖：防止每回合重复触发战败逻辑
+        if (!this.deadPlayers.has(pid)) {
+          this.deadPlayers.add(pid);
+          
+          const socketId = this.players[pid];
+          if (socketId) {
+            const playerIp = this.playerIdtoIp[pid];
+            const canSendFullVision = this.isIpFullyDefeated(playerIp, pid);
+            
+            if (!this.fullVisionPlayers) this.fullVisionPlayers = new Set();
+
+            if (canSendFullVision) {
+              // 给自己和同IP下所有已经阵亡的队友颁发全图特权
+              this.fullVisionPlayers.add(pid);
+              for (let otherPid = 1; otherPid <= this.numPlayers; otherPid++) {
+                if (this.playerIdtoIp[otherPid] === playerIp && otherPid !== pid) {
+                  this.fullVisionPlayers.add(otherPid);
+                }
+              }
+
+              // 给该 IP 下早前已经阵亡的玩家立刻补发全图事件
+              for (let otherPid = 1; otherPid <= this.numPlayers; otherPid++) {
+                if (this.playerIdtoIp[otherPid] === playerIp && otherPid !== pid && this.players[otherPid]) {
+                  io.to(this.players[otherPid]).emit('playerDefeated', {
+                    winner: null,
+                    stats: this.getStats(),
+                    grid: this.tileStatus,
+                    vision: Array.from(this.getPlayerVision(otherPid))
+                  });
+                }
+              }
             }
+            
+            io.to(socketId).emit('playerDefeated', {
+              winner: null,
+              stats: this.getStats(),
+              grid: this.tileStatus,
+              vision: Array.from(this.getPlayerVision(pid))
+            });
           }
-          
-          io.to(socketId).emit('playerDefeated', {
-            winner: null, // 游戏还未完全结束
-            stats: this.getStats(),
-            grid: this.tileStatus,
-            vision: Array.from(fullVision)
-          });
-          
-          // console.log(`玩家 ${pid} 失去所有领地，已发送完整视野`);
         }
       }
       
@@ -423,8 +698,21 @@ class Game {
     }
     
     if (movingArmy < 1) return false;
-    
+
+    const sourceIP = this.playerIdtoIp[source.owner];
+    const targetIP = this.playerIdtoIp[target.owner];
+
+    if (source.owner !== this.PLAYERS.NONE && target.owner !== this.PLAYERS.NONE && sourceIP == targetIP)
+    {
+      if(movingArmy >= 1){
+        target.army += movingArmy; 
+        source.army -= movingArmy;
+      }
+      return true;
+    }
+
     source.army -= movingArmy;
+
     if (source.army < 1) source.army = 1;
 
     if (target.owner === this.PLAYERS.NONE && target.isCity) {
@@ -473,24 +761,49 @@ class Game {
           target.isCapital = false;
           target.type = this.TILE_TYPES.CITY;
 
-          // 修复：向被击败的玩家发送完整视野
-          const defeatedSocketId = this.players[defeated];
-          if (defeatedSocketId) {
-            const fullVision = new Set();
-            for (let i = 0; i < this.GRID_SIZE; i++) {
-              for (let j = 0; j < this.GRID_SIZE; j++) {
-                fullVision.add(`${i},${j}`);
+          // --- 修改：向被击败的玩家发送视野（防作弊重构） ---
+          if (!this.deadPlayers) this.deadPlayers = new Set();
+          if (!this.deadPlayers.has(defeated)) {
+            this.deadPlayers.add(defeated);
+            
+            const defeatedSocketId = this.players[defeated];
+            if (defeatedSocketId) {
+              const defeatedIp = this.playerIdtoIp[defeated];
+              const canSendFullVision = this.isIpFullyDefeated(defeatedIp, defeated);
+              
+              if (!this.fullVisionPlayers) this.fullVisionPlayers = new Set();
+
+              if (canSendFullVision) {
+                // 添加全图特权
+                this.fullVisionPlayers.add(defeated);
+                for (let otherPid = 1; otherPid <= this.numPlayers; otherPid++) {
+                  if (this.playerIdtoIp[otherPid] === defeatedIp && otherPid !== defeated) {
+                    this.fullVisionPlayers.add(otherPid);
+                  }
+                }
+
+                // 补发全图给同 IP 下其他提前阵亡的队友
+                for (let otherPid = 1; otherPid <= this.numPlayers; otherPid++) {
+                  if (this.playerIdtoIp[otherPid] === defeatedIp && otherPid !== defeated && this.players[otherPid]) {
+                    io.to(this.players[otherPid]).emit('playerDefeated', {
+                      winner: playerId,
+                      stats: this.getStats(),
+                      grid: this.tileStatus,
+                      vision: Array.from(this.getPlayerVision(otherPid))
+                    });
+                  }
+                }
               }
+              
+              io.to(defeatedSocketId).emit('playerDefeated', {
+                winner: playerId,
+                stats: this.getStats(),
+                grid: this.tileStatus,
+                vision: Array.from(this.getPlayerVision(defeated))
+              });
+              
+              console.log(`玩家 ${defeated} 被击败，全图视野状态: ${canSendFullVision}`);
             }
-            
-            io.to(defeatedSocketId).emit('playerDefeated', {
-              winner: playerId,
-              stats: this.getStats(),
-              grid: this.tileStatus,
-              vision: Array.from(fullVision)
-            });
-            
-            console.log(`玩家 ${defeated} 被击败，已发送完整视野`);
           }
         }
       } else if (movingArmy < defender) {
@@ -586,7 +899,6 @@ class Game {
     }, 1000);
   }
 
-  // 修改 startNewTurn 方法中的游戏结束判断逻辑
   startNewTurn() {
     this.currentTurn++;
     this.bonusArmyApplied = false;
@@ -606,7 +918,6 @@ class Game {
     return false;
   }
   
-  // 修改 startTurnTimer 方法
   startTurnTimer() {
     if (this.turnTimer) clearInterval(this.turnTimer);
     this.turnTimer = setInterval(() => {
@@ -668,8 +979,40 @@ class Game {
     }, 25000);
   }
 
+  // 检查某个 IP 下的所有玩家是否都已阵亡
+  isIpFullyDefeated(ip, currentDefeatedPid) {
+    for (let pid = 1; pid <= this.numPlayers; pid++) {
+      if (this.playerIdtoIp[pid] === ip && pid !== currentDefeatedPid) {
+        // 检查这个同 IP 玩家是否有领地
+        let hasTiles = false;
+        for (let i = 0; i < this.GRID_SIZE; i++) {
+          for (let j = 0; j < this.GRID_SIZE; j++) {
+            if (this.tileStatus[i][j].owner === pid) {
+              hasTiles = true;
+              break;
+            }
+          }
+          if (hasTiles) break;
+        }
+        if (hasTiles) return false; // 该 IP 还有存活玩家
+      }
+    }
+    return true; // 该 IP 已全军覆没
+  }
+
   getPlayerVision(playerId) {
     const vision = new Set();
+
+    // --- 新增：如果该玩家同IP已全军覆没，获得了全图特权，则永远返回全图 ---
+    if (this.fullVisionPlayers && this.fullVisionPlayers.has(playerId)) {
+      for (let i = 0; i < this.GRID_SIZE; i++) {
+        for (let j = 0; j < this.GRID_SIZE; j++) {
+          vision.add(`${i},${j}`);
+        }
+      }
+      return vision;
+    }
+
     for (let i = 0; i < this.GRID_SIZE; i++) {
       for (let j = 0; j < this.GRID_SIZE; j++) {
         const t = this.tileStatus[i][j];
@@ -691,6 +1034,7 @@ class Game {
     if (this.turnTimer) { clearInterval(this.turnTimer); this.turnTimer = null; }
     if (this.armyIncreaseTimer) { clearInterval(this.armyIncreaseTimer); this.armyIncreaseTimer = null; }
     if (this.capitalIncreaseTimer) { clearInterval(this.capitalIncreaseTimer); this.capitalIncreaseTimer = null; }
+    if (this.aiMoveTimer) { clearInterval(this.aiMoveTimer); this.aiMoveTimer = null; }
   }
 }
 
@@ -703,6 +1047,7 @@ function getRoomLobbyData(game) {
     const socketId = game.players[pid];
     if (socketId) { // 如果这个玩家槽位有人
       lobbyPlayers[pid] = {
+        isAI: isAIPlayer(game, pid),
         name: game.playerNames[pid] || `玩家${pid}`,
         isReady: !!game.readyPlayers[pid], // 转换为布尔值
         // 新增：根据 PID 确定颜色，与游戏开始后的逻辑保持一致
@@ -723,7 +1068,7 @@ function broadcastRoomLobbyUpdate(roomId) {
 
 io.on('connection', (socket) => {
   const clientIP = getSocketIP(socket); // 使用新的IP获取方法
-  console.log(`用户连接尝试: ${socket.id} (IP: ${clientIP})`);
+  // console.log(`用户连接尝试: ${socket.id} (IP: ${clientIP})`);
   
   // 检查IP是否被允许连接
   if (!isIPAllowed(clientIP)) {
@@ -829,6 +1174,16 @@ io.on('connection', (socket) => {
     }
 
     game.players[assigned] = socket.id;
+    const clientIP = getSocketIP(socket);
+
+    game.playerIdtoIp[assigned] = clientIP; // new 20230312
+
+    console.log(`socket ${assigned} to ${game.playerIdtoIp[assigned]}`);
+
+    if (!game.ipToTransform.has(clientIP)) {
+        game.ipToTransform.set(clientIP, Math.floor(Math.random() * 7));
+    }
+    game.playerVisionTransforms[assigned] = game.ipToTransform.get(clientIP);
     playerRooms[socket.id] = roomId;
     game.playerNames[assigned] = username || playerNames[socket.id];
 
@@ -842,6 +1197,43 @@ io.on('connection', (socket) => {
     console.log(`玩家 ${username} 加入房间 ${roomId} 作为玩家${assigned}`);
   });
 
+  socket.on('addAIPlayers', ({ roomId, count }) => {
+    const targetRoomId = roomId ? String(roomId) : '';
+    const game = gameStates[targetRoomId];
+
+    if (!targetRoomId || !game || playerRooms[socket.id] !== targetRoomId) {
+      socket.emit('aiAddError', { message: '请先加入房间，再添加 AI' });
+      return;
+    }
+
+    if (game.gameStarted) {
+      socket.emit('aiAddError', { message: '游戏已经开始，不能再添加 AI' });
+      return;
+    }
+
+    const requested = Math.max(1, parseInt(count, 10) || 1);
+    const occupied = Object.values(game.players).filter(p => p).length;
+    const remaining = Math.max(0, game.MAX_PLAYERS - occupied);
+
+    if (remaining <= 0) {
+      socket.emit('aiAddError', { message: '房间已满，无法添加 AI' });
+      return;
+    }
+
+    const added = game.addAIPlayers(Math.min(requested, remaining));
+    if (added.length === 0) {
+      socket.emit('aiAddError', { message: '没有可用空位' });
+      return;
+    }
+
+    broadcastRoomLobbyUpdate(targetRoomId);
+    socket.emit('aiPlayersAdded', {
+      count: added.length,
+      remaining: Math.max(0, game.MAX_PLAYERS - Object.values(game.players).filter(p => p).length)
+    });
+    tryStartGame(targetRoomId);
+  });
+
   socket.on('playerReady', ({ roomId, playerId, name }) => {
     console.log(`房间 ${roomId} 玩家 ${playerId} 就绪`);
     if (gameStates[roomId]) {
@@ -849,6 +1241,8 @@ io.on('connection', (socket) => {
         game.readyPlayers[playerId] = true;
         game.playerNames[playerId] = name || `玩家${playerId}`;
         broadcastRoomLobbyUpdate(roomId);
+        tryStartGame(roomId);
+        return;
         const totalPlayers = Object.values(game.players).filter(p => p).length;
         const readyCount = Object.values(game.readyPlayers).filter(r => r).length;
         const allReady = readyCount === totalPlayers && totalPlayers >= 2;
@@ -895,24 +1289,6 @@ io.on('connection', (socket) => {
         socket.emit('tileSelected', { x, y });
       }
     }
-  });
-
-  socket.on('playerDefeated', (data) => {
-    // 更新游戏状态，显示完整地图
-    if (data.grid) this.tileStatus = data.grid;
-    if (data.stats) this.stats = data.stats;
-    if (data.vision) this.vision = new Set(data.vision);
-    
-    // 游戏结束状态
-    this.gameOver = true;
-    this.gameStarted = false;
-    
-    const message = data.winner === this.playerId ? 
-      '你赢得了游戏！' : '你被击败了！游戏继续观看中...';
-    
-    this.showGameOver(message);
-    this.renderGrid();
-    this.updateStats();
   });
 
   socket.on('moveArmy', ({ roomId, playerId, source, target, arrow }) => {
@@ -1169,9 +1545,11 @@ function startServer(port) {
   const serverInstance = server.listen(port, () => {
     console.log(`服务器运行在 http://localhost:${port}`);
     console.log(`当前配置:`);
+    console.log(`- 端口: ${port}`);
+    console.log(`- 房间最大人数: ${config.maxPlayers}`);
     console.log(`- 白名单模式: ${whitelistMode ? '启用' : '禁用'}`);
-    console.log(`- 白名单IP: ${Array.from(ipWhitelist).join(', ')}`);
-    console.log(`- 黑名单IP: ${Array.from(ipBlacklist).join(', ')}`);
+    console.log(`- 白名单IP数: ${ipWhitelist.size}`);
+    console.log(`- 黑名单IP数: ${ipBlacklist.size}`);
   }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.log(`端口 ${port} 被占用，尝试端口 ${port + 1}`);
